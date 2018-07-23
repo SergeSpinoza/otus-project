@@ -1,0 +1,30 @@
+---
+- name: Pull and run gitlab-ci container
+  hosts: gitlab-ci
+  become: true
+  gather_facts: false
+  vars:
+    ext_ip_addr: 35.204.135.157
+
+  tasks:
+    - name: Run Gitlab-ci container
+      docker_container:
+        name: gitlab-ci
+        hostname: "gitlab-ci"
+        image: gitlab/gitlab-ce:latest
+        pull: yes
+        state: started
+        # restart: yes
+        restart_policy: always
+        ports:
+          - "80:80"
+          - "443:443"
+          - "2222:22"
+        volumes:
+          - /mnt/gitlab/config:/etc/gitlab
+          - /mnt/gitlab/logs:/var/log/gitlab
+          - /mnt/gitlab/data:/var/opt/gitlab
+        env:
+          GITLAB_OMNIBUS_CONFIG: "external_url 'http://{{ ext_ip_addr }}'"
+        #log_options:
+        #  max-size: 500m

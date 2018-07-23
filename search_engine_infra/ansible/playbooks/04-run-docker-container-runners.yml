@@ -1,0 +1,9 @@
+---
+- name: Register runners for gitlab-ci
+  hosts: gitlab-runners
+  become: true
+  gather_facts: false
+  
+  tasks:
+    - name: Run register runners script
+      script: ../files/register-gitlab-runners.sh

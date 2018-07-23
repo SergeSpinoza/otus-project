@@ -1,0 +1,18 @@
+# Conf files #
+###################
+variables.json
+*.tfstate
+*.tfstate.*.backup
+*.tfstate.backup
+.terraform/
+*.swp
+*.retry
+vault.key
+*.log
+.DS_Store
+*.tfvars
+
+# SSH keys
+id_rsa
+credentials.json
+ansible/roles/mongrelion.docker

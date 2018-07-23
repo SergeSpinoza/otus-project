@@ -1,0 +1,2 @@
+LABEL=cloudimg-rootfs	/	 ext4	defaults	0 0
+/dev/sdb1    /mnt/gitlab    xfs    defaults    0    0

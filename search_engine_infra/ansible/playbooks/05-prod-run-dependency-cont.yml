@@ -1,0 +1,35 @@
+---
+- name: Pull and run rabbitmq and mongod container
+  hosts: tag_production
+  become: true
+  gather_facts: false
+  vars:
+    rabbitmq_image: rabbitmq:3.7.7 
+    mongod_image: mongo:3.2
+
+  tasks:
+    - name: Create a network
+      docker_network:
+        name: search_engine
+
+    - name: Pull and Run rabbitmq container
+      docker_container:
+        name: rabbitmq
+        image: "{{ rabbitmq_image }}"
+        pull: yes
+        state: started
+        # restart: yes
+        restart_policy: always
+        networks:
+          - name: search_engine
+
+    - name: Pull and Run mongo container
+      docker_container:
+        name: mongo_db
+        image: "{{ mongod_image }}"
+        pull: yes
+        state: started
+        # restart: yes
+        restart_policy: always
+        networks:
+          - name: search_engine

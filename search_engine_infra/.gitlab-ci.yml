@@ -1,0 +1,309 @@
+image: alpine:latest
+
+stages:
+  - staging-create
+  - staging-delete
+  - release-latest
+  - production
+
+staging-create:
+  image: docker:latest
+  services:
+    - docker:dind
+  stage: staging-create
+  script:
+    - staging_create
+  only:
+    - triggers
+    - branches
+  cache:
+    key: ${CI_COMMIT_REF_SLUG}
+    untracked: true
+  environment:
+    name: staging
+    url: http://staging:8000
+    on_stop: staging-delete
+ 
+staging-delete:
+  image: docker:latest
+  services:
+    - docker:dind
+  stage: staging-delete
+  script:
+    - staging_delete
+  environment:
+    name: staging
+    action: stop
+  when: manual
+  cache:
+    key: ${CI_COMMIT_REF_SLUG}
+    untracked: true
+
+release-latest:
+  image: docker:latest
+  services:
+    - docker:dind
+  stage: release-latest
+  script:
+    - release_latest
+  environment:
+    name: release-latest
+    url: https://hub.docker.com/u/s1spinoza/
+  when: manual
+  only:
+    refs:
+      - master
+
+deploy-to-prod:
+  image: alpine:latest
+  stage: production
+  script:
+    - deploy_to_prod
+  environment:
+    name: production
+    url: http://production:8000
+  when: manual
+  only:
+    refs:
+      - master
+
+.auto_devops: &auto_devops |
+  # Auto DevOps variables and functions
+  [[ "$TRACE" ]] && set -x
+  # INSTANCE_NAME: stage-host-${CI_COMMIT_REF_SLUG}
+
+  export CERT_PATH="certs"
+  export DOCKER_IMAGE_HUB_UI="${DOCKER_HUB_LOGIN}/search_engine_ui"
+  export DOCKER_IMAGE_HUB_CRAWLER="${DOCKER_HUB_LOGIN}/search_engine_crawler"
+  export DOCKER_IMAGE_HUB_RABBITMQ="rabbitmq:3.7.7"
+  export DOCKER_IMAGE_HUB_MONGO="mongo:3.2"
+  export INSTANCE_NAME="stage"
+
+
+
+  function staging_create() {
+    apk update && apk add ca-certificates curl jq
+    base=https://github.com/docker/machine/releases/download/v0.14.0 && \
+    curl -L $base/docker-machine-$(uname -s)-$(uname -m) >/tmp/docker-machine && \
+    install /tmp/docker-machine /usr/local/bin/docker-machine
+    echo "Docker-machine installed!"
+
+    lines=$(docker-machine -s ${CERT_PATH} ls |wc -l)
+    staging_instance_exist=0
+    
+    echo "Num of docker-machines:"
+    echo ${lines}
+
+    for i in $(seq 2 ${lines})
+    do  
+      name=$(docker-machine -s ${CERT_PATH} ls | awk NR\ ==\ $i\{print\ \$1\})
+      if echo ${name} | grep -q 'stage'; then
+        # if [[ "${name}" =~ "stage" ]]; then
+        echo "Other staging instance is exists! You need to destroy it, if they are no longer needed."
+        staging_instance_exist=1
+        staging_instance_name=${name}
+        break
+      fi
+    done
+
+    echo "Docker-machine exists: "
+    echo ${staging_instance_exist}
+    # echo ${staging_instance_name}
+
+    if [[ ${staging_instance_exist} == 1 ]]; then
+      echo "Delete staging instance..."
+      docker-machine -s ${CERT_PATH} rm -y ${INSTANCE_NAME}
+      sleep 30
+      staging_instance_exist=0
+    fi
+
+    if [[ ${staging_instance_exist} == 0 ]]; then
+      echo "Creating staging instance..."
+      docker-machine -s ${CERT_PATH} create --driver google --google-project docker-201808 \
+        --google-machine-image https://www.googleapis.com/compute/v1/projects/ubuntu-os-cloud/global/images/family/ubuntu-1604-lts \
+        --google-machine-type n1-standard-1 \
+        --google-tags http-search-engine-ui \
+        --google-zone europe-west1-b ${INSTANCE_NAME}
+      eval $(docker-machine -s ${CERT_PATH} env --shell sh ${INSTANCE_NAME})
+      
+      echo "Certs dir:"
+      ls -la ${CERT_PATH}/
+
+      echo "Pull images..."
+      if docker pull ${DOCKER_IMAGE_HUB_MONGO}; then
+        echo "Succeeded"
+      else
+        echo "Fail"
+        $(cleanup)
+        exit 1
+      fi
+
+      if docker pull ${DOCKER_IMAGE_HUB_RABBITMQ}; then
+        echo "Succeeded"
+      else
+        echo "Fail"
+        $(cleanup)
+        exit 1
+      fi
+      
+      echo "Pull image search_engine_crawler"
+      if [ -z "$DOCKER_IMAGE_HUB_CRAWLER_EXT" ]; then 
+        if docker pull ${DOCKER_IMAGE_HUB_CRAWLER}; then
+          echo "Succeeded"
+        else
+          echo "Fail"
+          $(cleanup)
+          exit 1
+        fi
+      else
+        docker pull ${DOCKER_IMAGE_HUB_CRAWLER_EXT}
+        docker image tag ${DOCKER_IMAGE_HUB_CRAWLER_EXT} ${DOCKER_IMAGE_HUB_CRAWLER}:stage-${CI_PIPELINE_ID}
+        docker login -u ${DOCKER_HUB_LOGIN} -p ${DOCKER_HUB_PASS}
+        docker push ${DOCKER_IMAGE_HUB_CRAWLER}:stage-${CI_PIPELINE_ID}
+      fi
+
+      echo "Pull image search_engine_ui"
+      if [ -z "$DOCKER_IMAGE_HUB_UI_EXT" ]; then 
+        if docker pull ${DOCKER_IMAGE_HUB_UI}; then
+          echo "Succeeded"
+        else
+          echo "Fail"
+          $(cleanup)
+          exit 1
+        fi
+      else
+        docker pull ${DOCKER_IMAGE_HUB_UI_EXT}
+        docker image tag ${DOCKER_IMAGE_HUB_UI_EXT} ${DOCKER_IMAGE_HUB_UI}:stage-${CI_PIPELINE_ID}
+        docker login -u ${DOCKER_HUB_LOGIN} -p ${DOCKER_HUB_PASS}
+        docker push ${DOCKER_IMAGE_HUB_UI}:stage-${CI_PIPELINE_ID}
+      fi
+
+      echo "Run images..."
+      docker network create search_engine 
+      docker run -d --name rabbitmq --net search_engine ${DOCKER_IMAGE_HUB_RABBITMQ}
+      docker run -d --name mongo_db --net search_engine ${DOCKER_IMAGE_HUB_MONGO}
+      sleep 10
+      if [ -z "$DOCKER_IMAGE_HUB_CRAWLER_EXT" ]; then 
+        docker run -d --name search_engine_crawler --net search_engine ${DOCKER_IMAGE_HUB_CRAWLER}
+      else
+        docker run -d --name search_engine_crawler --net search_engine ${DOCKER_IMAGE_HUB_CRAWLER_EXT}
+      fi
+      if [ -z "$DOCKER_IMAGE_HUB_UI_EXT" ]; then 
+        docker run -d -p 8000:8000 --name search_engine_ui --net search_engine ${DOCKER_IMAGE_HUB_UI}
+      else
+        docker run -d -p 8000:8000 --name search_engine_ui --net search_engine ${DOCKER_IMAGE_HUB_UI_EXT}
+      fi
+      
+      unset STAGING_IP
+      export STAGING_IP=$(docker-machine -s ${CERT_PATH} ip ${INSTANCE_NAME})
+      echo "IP of stage instance:"
+      echo ${STAGING_IP}
+      echo "Make review http://${STAGING_IP}:8000"
+    fi
+  }
+  
+  function cleanup() {
+    echo "Delete staging instance..."
+    docker-machine -s ${CERT_PATH} rm -y ${INSTANCE_NAME}
+  }
+
+  function staging_delete() {
+    apk update && apk add ca-certificates curl jq
+    base=https://github.com/docker/machine/releases/download/v0.14.0 && \
+    curl -L $base/docker-machine-$(uname -s)-$(uname -m) >/tmp/docker-machine && \
+    install /tmp/docker-machine /usr/local/bin/docker-machine
+    echo "Docker-machine installed!"
+
+    echo "Certs dir:"
+    ls -la ${CERT_PATH}/
+
+    echo "Delete staging instance..."
+    docker-machine -s ${CERT_PATH} rm -y ${INSTANCE_NAME}
+  }
+
+  function release_latest() {
+    echo "Check new stage images..."
+    if docker pull ${DOCKER_IMAGE_HUB_UI}:stage-${CI_PIPELINE_ID}; then
+      echo "Succeeded"
+      docker image tag ${DOCKER_IMAGE_HUB_UI}:stage-${CI_PIPELINE_ID} ${DOCKER_IMAGE_HUB_UI}:latest
+      docker image tag ${DOCKER_IMAGE_HUB_UI}:stage-${CI_PIPELINE_ID} ${DOCKER_IMAGE_HUB_UI}:prod-${CI_PIPELINE_ID}
+      docker login -u ${DOCKER_HUB_LOGIN} -p ${DOCKER_HUB_PASS}
+      docker push ${DOCKER_IMAGE_HUB_UI}:latest
+      docker push ${DOCKER_IMAGE_HUB_UI}:prod-${CI_PIPELINE_ID}
+    else
+      echo "No new image of ${DOCKER_IMAGE_HUB_UI}"
+    fi
+
+    echo "Check new stage images..."
+    if docker pull ${DOCKER_IMAGE_HUB_CRAWLER}:stage-${CI_PIPELINE_ID}; then
+      echo "Succeeded"
+      docker image tag ${DOCKER_IMAGE_HUB_CRAWLER}:stage-${CI_PIPELINE_ID} ${DOCKER_IMAGE_HUB_CRAWLER}:latest
+      docker image tag ${DOCKER_IMAGE_HUB_CRAWLER}:stage-${CI_PIPELINE_ID} ${DOCKER_IMAGE_HUB_CRAWLER}:prod-${CI_PIPELINE_ID}
+      docker login -u ${DOCKER_HUB_LOGIN} -p ${DOCKER_HUB_PASS}
+      docker push ${DOCKER_IMAGE_HUB_CRAWLER}:latest
+      docker push ${DOCKER_IMAGE_HUB_CRAWLER}:prod-${CI_PIPELINE_ID}
+    else
+      echo "No new image of ${DOCKER_IMAGE_HUB_CRAWLER}"
+    fi
+  }
+
+  function docker_tag_exists() {
+    TOKEN=$(curl -s -H "Content-Type: application/json" -X POST -d '{"username": "'${DOCKER_HUB_LOGIN}'", "password": "'${DOCKER_HUB_PASS}'"}' https://hub.docker.com/v2/users/login/ | jq -r .token)
+    EXISTS=$(curl -s -H "Authorization: JWT ${TOKEN}" https://hub.docker.com/v2/repositories/$1/tags/?page_size=10000 | jq -r "[.results | .[] | .name == \"$2\"] | any")
+    test $EXISTS = true
+  }
+
+  function deploy_to_prod() {
+    echo "===> Install Ansible"
+    apk --update add sudo                                        
+    apk --update add python py-pip openssl ca-certificates    
+    apk --update add --virtual build-dependencies python-dev libffi-dev openssl-dev build-base
+    pip install --upgrade pip cffi   
+    pip install 'ansible>=2.5.4,<2.6.0'                         
+    pip install ansible
+    pip install 'apache-libcloud>=0.13'
+    pip install pycrypto
+    
+    echo "===> Install Curl"
+    apk add --no-cache curl
+    
+    echo "===> Install JQ"
+    apk add --no-cache jq
+    
+    echo "===> Create ssh private key"
+    # echo "${DEPLOY_SERVER_PRIVATE_KEY}" | tr -d '\r' > ssh/otusproj/id_rsa
+    echo "${DEPLOY_SERVER_PRIVATE_KEY}" > ssh/otusproj/id_rsa
+    # cat ssh/otusproj/id_rsa
+
+    echo "===> Create credentials.json file"
+    echo "${CREDENTIALS_JSON}" > ansible/credentials.json
+    # cat ansible/credentials.json
+    
+    echo "===> Play ansible playbook"
+    cd ansible
+    export ANSIBLE_CONFIG="./ansible.cfg"
+    ansible-playbook playbooks/05-prod-run-dependency-cont.yml -l tag_production
+
+    echo "===> Check search_engine_crawler docker image exists"
+    if docker_tag_exists ${DOCKER_IMAGE_HUB_CRAWLER} prod-${CI_PIPELINE_ID}; then
+      echo "Prod image exist!"
+      ansible-playbook playbooks/06-prod-run-search_engine-crawler.yml -l tag_production --extra-vars "search_engine_crawler_tag=prod-${CI_PIPELINE_ID} docker_hub_login=${DOCKER_HUB_LOGIN}"
+    else
+      echo "Prod image not exist, use latest"
+      ansible-playbook playbooks/06-prod-run-search_engine-crawler.yml -l tag_production --extra-vars "search_engine_crawler_tag=latest docker_hub_login=${DOCKER_HUB_LOGIN}"
+    fi
+
+    echo "===> Check search_engine_ui docker image exists"
+    if docker_tag_exists ${DOCKER_IMAGE_HUB_UI} prod-${CI_PIPELINE_ID}; then
+      echo "Prod image exist!"
+      ansible-playbook playbooks/07-prod-run-search_engine-ui.yml -l tag_production --extra-vars "search_engine_ui_tag=prod-${CI_PIPELINE_ID} docker_hub_login=${DOCKER_HUB_LOGIN}"
+    else
+      echo "Prod image not exist, use latest"
+      ansible-playbook playbooks/07-prod-run-search_engine-ui.yml -l tag_production --extra-vars "search_engine_ui_tag=latest docker_hub_login=${DOCKER_HUB_LOGIN}"
+    fi
+  }
+
+before_script:
+  - *auto_devops
+
+

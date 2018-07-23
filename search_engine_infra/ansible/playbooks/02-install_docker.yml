@@ -1,0 +1,19 @@
+---
+- name: Install Docker 
+  hosts: gitlab-ci:gitlab-runners:tag_production
+  become: true
+
+  roles: 
+    - role: mongrelion.docker
+      docker_version: 18.03
+      docker_compose: no
+
+- name: Install python module
+  hosts: gitlab-ci:gitlab-runners:tag_production
+  become: true
+  gather_facts: False
+
+  tasks:
+    - name: install python module docker
+      pip: 
+        name: docker-py

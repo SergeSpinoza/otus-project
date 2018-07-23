@@ -1,0 +1,23 @@
+---
+- name: Pull and run search_engine_ui container
+  hosts: tag_production
+  become: true
+  gather_facts: false
+  vars:
+    docker_hub_login: s1spinoza
+    search_engine_ui_tag: latest
+    search_engine_ui_image: "{{ docker_hub_login }}/search_engine_ui:{{ search_engine_ui_tag }}"
+
+  tasks:
+    - name: Pull and Run search_engine_ui container
+      docker_container:
+        name: search_engine_ui
+        image: "{{ search_engine_ui_image }}"
+        pull: yes
+        state: started
+        # restart: yes
+        restart_policy: always
+        networks:
+          - name: search_engine
+        ports:
+          - "8000:8000"

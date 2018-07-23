@@ -1,0 +1,21 @@
+---
+- name: Pull and run search_engine_crawler container
+  hosts: tag_production
+  become: true
+  gather_facts: false
+  vars:
+    docker_hub_login: s1spinoza
+    search_engine_crawler_tag: latest 
+    search_engine_crawler_image: "{{ docker_hub_login }}/search_engine_crawler:{{ search_engine_crawler_tag }}"
+
+  tasks:
+    - name: Pull and Run search_engine_crawler container
+      docker_container:
+        name: search_engine_crawler
+        image: "{{ search_engine_crawler_image }}"
+        pull: yes
+        state: started
+        # restart: yes
+        restart_policy: always
+        networks:
+          - name: search_engine

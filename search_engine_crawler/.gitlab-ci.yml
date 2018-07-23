@@ -1,0 +1,89 @@
+image: alpine:latest
+
+stages:
+  - test
+  - build
+#  - staging
+#  - production
+
+test_job:
+  stage: test
+  script:
+    - test
+  only:
+    - branches
+  except:
+    - master
+
+# Then merge request to master    
+
+build_job:
+  image: docker:latest
+  services:
+    - docker:dind
+  stage: build
+  script:
+    - build
+    - trigger_deploy
+  only:
+    refs:
+      - master
+
+
+
+.auto_devops: &auto_devops |
+  # Auto DevOps variables and functions
+  [[ "$TRACE" ]] && set -x
+  export DEPLOY_TRIGGER="720ea608c9e3c44e815fb7b1025378"
+  export DOCKER_HUB_REPO="${DOCKER_HUB_LOGIN}/search_engine_crawler"
+  export PATH_TO_DOCKERRFILE="./"
+  export DOCKER_IMAGE="search_engine_crawler:${CI_COMMIT_REF_SLUG}"
+  export DOCKER_IMAGE_HUB="${DOCKER_HUB_REPO}:${CI_COMMIT_REF_SLUG}-${CI_PIPELINE_ID}" 
+
+  # export CI_APPLICATION_REPOSITORY=$CI_REGISTRY/$CI_PROJECT_PATH
+  # export CI_APPLICATION_TAG=$CI_COMMIT_REF_SLUG
+  # export CI_CONTAINER_NAME=ci_job_build_${CI_JOB_ID}
+  # export TILLER_NAMESPACE="kube-system"
+  
+  function test() {
+    echo "Install python"
+    apk add --no-cache python3 && \
+    python3 -m ensurepip && \
+    rm -r /usr/lib/python*/ensurepip && \
+    pip3 install --upgrade pip setuptools && \
+    if [ ! -e /usr/bin/pip ]; then ln -s pip3 /usr/bin/pip ; fi && \
+    if [[ ! -e /usr/bin/python ]]; then ln -sf /usr/bin/python3 /usr/bin/python; fi && \
+    rm -r /root/.cache
+
+    echo "Install requirements for tests"
+    pip install -r requirements.txt -r requirements-test.txt
+
+    echo "Testing..."
+    python -m unittest discover -s tests/ 
+
+    echo "Generate reports about code testing"
+    coverage run -m unittest discover -s tests/ 
+    coverage report --include crawler/crawler.py
+  }
+
+  function build() {
+    cd ${PATH_TO_DOCKERRFILE}
+    
+    echo "Build docker image"
+    docker build -t ${DOCKER_IMAGE} .
+    
+    echo "Tag docker image"
+    docker image tag ${DOCKER_IMAGE} ${DOCKER_IMAGE_HUB}
+    docker login -u ${DOCKER_HUB_LOGIN} -p ${DOCKER_HUB_PASS}
+    
+    echo "Push docker image to repo"
+    docker push ${DOCKER_IMAGE_HUB}
+  }
+
+  function trigger_deploy() {
+    apk add -U curl 
+    curl -X POST -F token=${DEPLOY_TRIGGER} -F ref=master -F "variables[DOCKER_IMAGE_HUB_CRAWLER_EXT]=${DOCKER_IMAGE_HUB}" http://35.204.135.157/api/v4/projects/3/trigger/pipeline
+  }
+
+before_script:
+  - *auto_devops

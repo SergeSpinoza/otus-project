@@ -1,0 +1,24 @@
+project = "docker-201808"
+public_key_path = "../../ssh/otusproj/id_rsa.pub"
+private_key_path = "../../ssh/otusproj/id_rsa"
+disk_image = "ubuntu-1604-lts"
+
+### GITLAB-CI INSTANCE ###
+gitlab_ci_machine_type  = "n1-standard-1"
+gitlab_ci_persistent_disk_type = "pd-standard"
+gitlab_ci_disk_type = "pd-standard"
+gitlab_ci_persistent_disk_size = "40"
+gitlab_ci_disk_size = "40"
+gitlab_new_disk = "0"
+gitlab_mount_disk = "1"
+
+### GITLAB-CI RUNNERS INSTANCE ###
+gitlab_runners_machine_type = "g1-small"
+gitlab_runners_disk_type = "pd-standard"
+gitlab_runners_disk_size = "20"
+
+### PRODUCTION ###
+prod_instance_count = "1"
+prod_machine_type = "g1-small"
+prod_disk_size = "30"
+prod_disk_type = "pd-standard"
