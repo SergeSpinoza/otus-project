@@ -32,7 +32,7 @@
   - `gcloud config set project your_project`
 - Далее необходимо установить terraform, ссылка на мануал: https://www.terraform.io/intro/getting-started/install.html ;
 - Сгенерировать и положить ssh ключи otusproj по пути `search_engine_infra/ssh/otusproj/`;
-- Скопировать файл `search_engine_infra/terraform/terraform.tfvars.example` в `search_engine_infra/terraform/terraform.tfvars.example` и файл `search_engine_infra/terraform/prod/terraform.tfvars.example` в `search_engine_infra/terraform/prod/terraform.tfvars.example`;
+- Скопировать файл `search_engine_infra/terraform/terraform.tfvars.example` в `search_engine_infra/terraform/terraform.tfvars` и файл `search_engine_infra/terraform/prod/terraform.tfvars.example` в `search_engine_infra/terraform/prod/terraform.tfvars`;
 - Внести изменения в конфигурационный файл terraform `search_engine_infra/terraform/prod/terraform.tfvars`, изменив значение переменной `gitlab_new_disk` на "1", после успешного развертывания вернуть обратно на "0"; 
 - Для развертывания инфраструктуры, необходимо, находясь в директории `search_engine_infra/terraform/`, выполнить команды `terraform init` и `terraform apply` - создадутся необходимые бакеты;
 - Далее из директории `search_engine_infra/terraform/prod/` выполнить команды `terraform init` и `terraform apply` - развернуться необходимые инстансы; P.S. если вдруг при выполнении `terraform apply` возникла ошибка (такое иногда бывает, если сеть еще не успела развернуться, а инстансы уже начали разворачиваться) - то необходимо выполнить команду `terraform apply` еще раз. К сожалению terraform пока не позволяет прописывать зависимости модулей.
