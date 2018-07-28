@@ -88,3 +88,18 @@ variable prod_disk_type {
 variable prod_disk_size {
   description = "Disk size"
 }
+
+### MONITORING INSTANCE ###
+#####################
+
+variable mon_machine_type {
+  description = "Production machine type"
+}
+
+variable mon_disk_type {
+  description = "Disk type"
+}
+
+variable mon_disk_size {
+  description = "Disk size"
+}

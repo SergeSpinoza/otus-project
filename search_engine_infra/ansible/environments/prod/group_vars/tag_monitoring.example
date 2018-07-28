@@ -1,0 +1,9 @@
+prod_host: 10.5.0.5
+
+prometheus_image: prom/prometheus:v2.1.0
+
+grafana_image: grafana/grafana:5.0.0
+grafana_login: admin
+grafana_pass: XXXXXXXXXXXXX
+
+alertmanager_image: prom/alertmanager:v0.14.0

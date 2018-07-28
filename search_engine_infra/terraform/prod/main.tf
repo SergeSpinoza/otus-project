@@ -9,6 +9,8 @@ module "vcp" {
   source_ranges_to_ssh              = ["0.0.0.0/0"]
   source_ranges_to_search_engine_ui = ["0.0.0.0/0"]
   source_ranges_all                 = ["0.0.0.0/0"]
+  source_ranges_int                 = ["10.5.0.0/24"]
+  source_ranges_to_monitoring       = ["0.0.0.0/0"]
 }
 
 module "gitlab-ci" {
@@ -45,4 +47,14 @@ module "prod" {
   prod_machine_type   = "${var.prod_machine_type}"
   prod_disk_size      = "${var.prod_disk_size}"
   prod_disk_type      = "${var.prod_disk_type}"
+}
+
+module "monitoring" {
+  source           = "../modules/monitoring"
+  public_key_path  = "${var.public_key_path}"
+  zone             = "${var.zone}"
+  disk_image       = "${var.disk_image}"
+  mon_machine_type = "${var.mon_machine_type}"
+  mon_disk_size    = "${var.mon_disk_size}"
+  mon_disk_type    = "${var.mon_disk_type}"
 }

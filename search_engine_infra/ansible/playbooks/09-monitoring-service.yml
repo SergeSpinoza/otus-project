@@ -1,0 +1,128 @@
+---
+- name: Create dirs for monitoring
+  hosts: tag_monitoring
+  become: yes
+  gather_facts: False
+  
+  tasks:
+    - name: Create dir /mnt/monitoring
+      file:
+         path: /mnt/monitoring
+         state: directory
+         mode: 0755
+
+    - name: Create dir /mnt/monitoring/prometheus
+      file:
+         path: /mnt/monitoring/prometheus
+         state: directory
+         mode: 0755
+
+    - name: Create dir /mnt/monitoring/prometheus_data
+      file:
+         path: /mnt/monitoring/prometheus_data
+         state: directory
+         mode: 0777
+
+    - name: Create dir /mnt/monitoring/grafana_data
+      file:
+         path: /mnt/monitoring/grafana_data
+         state: directory
+         mode: 0777
+
+    - name: Create dir /mnt/monitoring/alertmanager
+      file:
+         path: /mnt/monitoring/alertmanager
+         state: directory
+         mode: 0777
+
+- name: Copy config files for monitoring system
+  hosts: tag_monitoring
+  become: yes
+  gather_facts: False
+
+  tasks:
+    - name: Add config for prometheus
+      template:
+        src: ../templates/prometheus.yml.j2
+        dest: /mnt/monitoring/prometheus/prometheus.yml
+        mode: 0644
+
+    - name: Add config for prometheus alerts
+      copy:
+        src: ../files/alerts.yml
+        dest: /mnt/monitoring/prometheus/alerts.yml
+        mode: 0644
+
+    - name: Add config for alertmanager
+      copy:
+        src: ../files/alertmanager_config.yml
+        dest: /mnt/monitoring/alertmanager/config.yml
+        mode: 0644
+
+
+- name: Pull and run monitoring containers
+  hosts: tag_monitoring
+  become: true
+  gather_facts: false
+
+  tasks:
+    - name: Create a network
+      docker_network:
+        name: monitoring_net
+
+    - name: Pull and Run alertmanager
+      docker_container:
+        name: alertmanager
+        image: "{{ alertmanager_image }}"
+        pull: yes
+        state: started
+        restart: yes
+        restart_policy: always
+        networks:
+          - name: monitoring_net
+        ports:
+          - "9093:9093"
+        volumes:
+          - /mnt/monitoring/alertmanager/config.yml:/etc/alertmanager/config.yml
+        command:
+          - "--config.file=/etc/alertmanager/config.yml"
+
+    - name: Pull and Run prometheus
+      docker_container:
+        name: prometheus
+        image: "{{ prometheus_image }}"
+        pull: yes
+        state: started
+        restart: yes
+        # recreate: yes
+        restart_policy: always
+        networks:
+          - name: monitoring_net
+        ports:
+          - "9090:9090"
+        volumes:
+          - /mnt/monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+          - /mnt/monitoring/prometheus/alerts.yml:/etc/prometheus/alerts.yml
+          - /mnt/monitoring/prometheus_data:/prometheus
+        command:
+          - "--config.file=/etc/prometheus/prometheus.yml"
+          - "--storage.tsdb.path=/prometheus"
+          - "--storage.tsdb.retention=1d"
+
+    - name: Pull and Run grafana
+      docker_container:
+        name: grafana
+        image: "{{ grafana_image }}"
+        pull: yes
+        state: started
+        # restart: yes
+        restart_policy: always
+        networks:
+          - name: monitoring_net
+        ports:
+          - "3000:3000"
+        volumes:
+          - /mnt/monitoring/grafana_data:/var/lib/grafana
+        env:
+          GF_SECURITY_ADMIN_USER: "{{ grafana_login }}"
+          GF_SECURITY_ADMIN_PASSWORD: "{{ grafana_pass }}"

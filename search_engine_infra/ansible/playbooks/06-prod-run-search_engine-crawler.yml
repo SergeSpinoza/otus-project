@@ -19,3 +19,5 @@
         restart_policy: always
         networks:
           - name: search_engine
+        ports:
+          - "8008:8000"

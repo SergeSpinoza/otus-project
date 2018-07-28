@@ -1,6 +1,6 @@
 ---
 - name: Install Docker 
-  hosts: gitlab-ci:gitlab-runners:tag_production
+  hosts: gitlab-ci:gitlab-runners:tag_production:tag_monitoring
   become: true
 
   roles: 
@@ -9,7 +9,7 @@
       docker_compose: no
 
 - name: Install python module
-  hosts: gitlab-ci:gitlab-runners:tag_production
+  hosts: gitlab-ci:gitlab-runners:tag_production:tag_monitoring
   become: true
   gather_facts: False
 

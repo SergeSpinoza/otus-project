@@ -1,4 +1,5 @@
 ---
 - import_playbook: 05-prod-run-dependency-cont.yml
+- import_playbook: 08-monitoring-prod.yml
 - import_playbook: 06-prod-run-search_engine-crawler.yml
 - import_playbook: 07-prod-run-search_engine-ui.yml

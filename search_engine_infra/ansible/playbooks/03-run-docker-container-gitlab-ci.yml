@@ -3,8 +3,6 @@
   hosts: gitlab-ci
   become: true
   gather_facts: false
-  vars:
-    ext_ip_addr: 35.204.135.157
 
   tasks:
     - name: Run Gitlab-ci container

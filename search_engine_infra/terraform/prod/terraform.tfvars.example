@@ -22,3 +22,8 @@ prod_instance_count = "1"
 prod_machine_type = "g1-small"
 prod_disk_size = "30"
 prod_disk_type = "pd-standard"
+
+### MONITORING ###
+mon_machine_type = "g1-small"
+mon_disk_size = "40"
+mon_disk_type = "pd-standard"

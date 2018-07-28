@@ -1,0 +1,4 @@
+---
+- import_playbook: 01-base.yml
+- import_playbook: 02-install_docker.yml
+- import_playbook: 09-monitoring-service.yml

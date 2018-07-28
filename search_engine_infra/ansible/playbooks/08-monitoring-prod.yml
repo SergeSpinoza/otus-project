@@ -1,0 +1,80 @@
+---
+- name: Pull and run exporters for monitoring
+  hosts: tag_production
+  become: true
+  gather_facts: false
+
+  tasks:
+    - name: Pull and Run mongodb_exporter
+      docker_container:
+        name: mongodb-exporter
+        image: "{{ mongodb_exporter_image }}"
+        pull: yes
+        state: started
+        # restart: yes
+        restart_policy: always
+        networks:
+          - name: search_engine
+        ports:
+          - "9104:9104"
+        command:
+          - '-mongodb.uri=mongodb://mongo_db:27017'
+
+    - name: Pull and Run node-exporter
+      docker_container:
+        name: node-exporter
+        image: "{{ node_exporter_image }}"
+        pull: yes
+        state: started
+        # restart: yes
+        restart_policy: always
+        networks:
+          - name: search_engine
+        ports:
+          - "9100:9100"
+        volumes:
+          - /proc:/host/proc:ro
+          - /sys:/host/sys:ro
+          - /:/rootfs:ro
+        user: root
+        command:
+          - '--path.procfs=/host/proc'
+          - '--path.sysfs=/host/sys'
+          - '--collector.filesystem.ignored-mount-points="^/(sys|proc|dev|host|etc)($$|/)"'
+
+    - name: Pull and Run cadvisor
+      docker_container:
+        name: cadvisor
+        image: "{{ cadvisor_image }}"
+        pull: yes
+        state: started
+        # restart: yes
+        restart_policy: always
+        networks:
+          - name: search_engine
+        ports:
+          - "8080:8080"
+        volumes:
+          - /:/rootfs:ro
+          - /var/run:/var/run:rw
+          - /sys:/sys:ro
+          - /var/lib/docker/:/var/lib/docker:ro
+
+    - name: Pull and Run rabbitmq-exporter
+      docker_container:
+        name: rabbitmq-exporter
+        image: "{{ rabbitmq_exporter_image }}"
+        pull: yes
+        state: started
+        restart: yes
+        restart_policy: always
+        networks:
+          - name: search_engine
+        ports:
+          - "9099:9099"
+        env:
+          RABBIT_URL: "http://rabbitmq:15672"
+          OUTPUT_FORMAT: "JSON"
+          RABBIT_USER: "guest"
+          RABBIT_PASSWORD: "guest"
+          PUBLISH_PORT: "9099"

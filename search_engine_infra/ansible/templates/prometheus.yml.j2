@@ -1,0 +1,49 @@
+---
+global:
+  scrape_interval: '5s'
+
+scrape_configs:
+  - job_name: 'search_engine_crawler'
+    static_configs:
+      - targets:
+        - '{{ prod_host }}:8008'
+
+  - job_name: 'search_engine_ui'
+    static_configs:
+      - targets:
+        - '{{ prod_host }}:8000'
+
+  - job_name: 'prod_node'
+    static_configs:
+      - targets:
+        - '{{ prod_host }}:9100'
+  
+  - job_name: 'prod_mongodb'
+    static_configs:
+      - targets:
+        - '{{ prod_host }}:9104'
+
+  - job_name: 'prod_rabbitmq'
+    static_configs:
+      - targets:
+        - '{{ prod_host }}:9099'
+
+  - job_name: 'prod_cadvisor'
+    static_configs:
+      - targets:
+        - '{{ prod_host }}:8080'
+
+  - job_name: 'prometheus'
+    static_configs:
+      - targets:
+        - 'localhost:9090'
+
+rule_files:
+  - "alerts.yml"
+
+alerting:
+  alertmanagers:
+  - scheme: http
+    static_configs:
+    - targets:
+      - "alertmanager:9093"

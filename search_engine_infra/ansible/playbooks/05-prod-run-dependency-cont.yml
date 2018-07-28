@@ -3,9 +3,6 @@
   hosts: tag_production
   become: true
   gather_facts: false
-  vars:
-    rabbitmq_image: rabbitmq:3.7.7 
-    mongod_image: mongo:3.2
 
   tasks:
     - name: Create a network

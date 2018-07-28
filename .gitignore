@@ -11,6 +11,8 @@ vault.key
 *.log
 .DS_Store
 *.tfvars
+tag_monitoring
+alertmanager_config.yml
 
 # SSH keys
 id_rsa

@@ -66,3 +66,71 @@ resource "google_compute_firewall" "firewall_http" {
   source_ranges = "${var.source_ranges_all}"
   depends_on = ["google_compute_subnetwork.int_net_default_24"]
 }
+
+# Allow grafana
+resource "google_compute_firewall" "firewall_allow_grafana" {
+  name    = "grafana-default"
+  network = "int-net-default"
+
+  allow {
+    protocol = "tcp"
+    ports    = ["3000"]
+  }
+
+  target_tags = ["grafana"]
+  source_ranges = "${var.source_ranges_to_monitoring}"
+  depends_on = ["google_compute_subnetwork.int_net_default_24"]
+}
+
+# Allow prometheus
+resource "google_compute_firewall" "firewall_allow_prometheus" {
+  name    = "prometheus-default"
+  network = "int-net-default"
+
+  allow {
+    protocol = "tcp"
+    ports    = ["9090"]
+  }
+
+  target_tags = ["prometheus"]
+  source_ranges = "${var.source_ranges_to_monitoring}"
+  depends_on = ["google_compute_subnetwork.int_net_default_24"]
+}
+
+# Allow alertmanager
+resource "google_compute_firewall" "firewall_allow_alertmanager" {
+  name    = "alertmanager-default"
+  network = "int-net-default"
+
+  allow {
+    protocol = "tcp"
+    ports    = ["9093"]
+  }
+
+  target_tags = ["alertmanager"]
+  source_ranges = "${var.source_ranges_to_monitoring}"
+  depends_on = ["google_compute_subnetwork.int_net_default_24"]
+}
+
+# Allow internal network
+resource "google_compute_firewall" "firewall_allow_int" {
+  name    = "allow-int-to-int-network"
+  network = "int-net-default"
+
+  allow {
+    protocol = "icmp"
+  }
+
+  allow {
+    protocol = "tcp"
+    ports    = ["0-65535"]
+  }
+
+  allow {
+    protocol = "udp"
+    ports    = ["0-65535"]
+  }
+
+  source_ranges = "${var.source_ranges_int}"
+  depends_on = ["google_compute_subnetwork.int_net_default_24"]
+}

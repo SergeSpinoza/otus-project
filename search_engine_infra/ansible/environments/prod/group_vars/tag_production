@@ -1,0 +1,6 @@
+rabbitmq_image: rabbitmq:3-management
+mongod_image: mongo:3.2
+node_exporter_image: prom/node-exporter:v0.15.2
+mongodb_exporter_image: eses/mongodb_exporter:latest
+cadvisor_image: google/cadvisor:v0.29.0
+rabbitmq_exporter_image: kbudde/rabbitmq-exporter:latest
