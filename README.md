@@ -1,6 +1,19 @@
 # Проектное задание по курсу DevOPS
 
-## Схема работы
+
+## Архитектура приложения
+Приложение состоит из 4-х микросервисов, каждый из которых находиться в своем Docker контейнере. 
+
+Микросервисы с описанием:
+  - rabbitmq (сервис очередей);
+  - mongo_db (база данных);
+  - search_engine_crawler (парсер страниц);
+  - search_engine_ui (web интерфейс пользователя);
+
+Production сервер используется 1 (но возможно задать необходимое количество в terraform, поправив некоторые дашборды мониторинга и джобы prometheus'a).
+
+
+## Схема работы pipeline
 Созданы 3 дирректории (каждая из которых в gitlab-ci должна быть в отдельном репозитарии):
 - search_engine_crawler
 - search_engine_ui
@@ -38,6 +51,7 @@
 - Далее из директории `search_engine_infra/terraform/prod/` выполнить команды `terraform init` и `terraform apply` - развернуться необходимые инстансы; P.S. если вдруг при выполнении `terraform apply` возникла ошибка (такое иногда бывает, если сеть еще не успела развернуться, а инстансы уже начали разворачиваться) - то необходимо выполнить команду `terraform apply` еще раз. К сожалению terraform пока не позволяет прописывать зависимости модулей.
 - После успешного развертывания будет выведен ip адрес хоста gitlab-ci. Его необходимо прописать в переменные в файл search_engine_infra/ansible/environments/prod/group_vars/gitlab-ci в переменную `ext_ip_addr`.
 
+
 ### 2. Развертывание Gitlab-ci, Gitlab-ci Runners и запуск Pipeline.
 - Для успешного запуска необходимо предварительно создать образы микросервисов search_engine_ui и search_engine_crawler и запушить их с тегом latest;
 - Установить Ansible;
@@ -73,6 +87,7 @@ function trigger_deploy() {
 - Если prod окружение запускается впервые - то выполнить плейбук `ansible-playbook playbooks/install-prod.yml -l tag_production`из директории search_engine_infra/ansible/, предварительно задав переменную `docker_hub_login` (имя пользователя на Docker HUB) в файлах `06-prod-run-search_engine-crawler.yml` и `07-prod-run-search_engine-ui.yml`; 
 - Запушить каждую дирректории **search_engine_crawler**, **search_engine_ui** и **search_engine_infra** в соответствующий проекты;
 
+
 ### 3. Развертывание мониторинга
 Для развертывания системы мониторинга необходимо:
 - Скопировать EXAMPLE-файл и исправить значения переменных на необходимые значения, файл `search_engine_infra/ansible/environments/prod/group_vars/tag_monitoring`. Описание переменных, которые необходимо задать:
@@ -93,8 +108,10 @@ function trigger_deploy() {
   - Указать источник данных prometheus, URL `http://prometheus:9090`;
   - Выполнить импорт дашбордов из директории `search_engine_infra/monitoring/grafana_dashboards/`;
 
+
 ### 4. Развертывание логгирования
 В процессе...
+
 
 
 ## Как проверить
@@ -107,6 +124,7 @@ function trigger_deploy() {
 - Проверяем что запустился job с созданием docker образа и его пуша на docker hub;
 - Проверяем, что после успешного завершения предыдущего джоба автоматически запускается pipeline проекта search_engine_infra;
 - Поочередно проходим все джобы проекта search_engine_infra;
+
 
 ### Проверка алертинга:
 - Настроен алертинг на недоступность контейнеров на инстансе prod, для проверки - необходимо остановить любой контейнер. Должно придти уведомление в указанный slack-канал.
