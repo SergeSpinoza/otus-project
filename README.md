@@ -36,7 +36,7 @@
 - Внести изменения в конфигурационный файл terraform `search_engine_infra/terraform/prod/terraform.tfvars`, изменив значение переменной `gitlab_new_disk` на "1", после успешного развертывания вернуть обратно на "0"; 
 - Для развертывания инфраструктуры, необходимо, находясь в директории `search_engine_infra/terraform/`, выполнить команды `terraform init` и `terraform apply` - создадутся необходимые бакеты;
 - Далее из директории `search_engine_infra/terraform/prod/` выполнить команды `terraform init` и `terraform apply` - развернуться необходимые инстансы; P.S. если вдруг при выполнении `terraform apply` возникла ошибка (такое иногда бывает, если сеть еще не успела развернуться, а инстансы уже начали разворачиваться) - то необходимо выполнить команду `terraform apply` еще раз. К сожалению terraform пока не позволяет прописывать зависимости модулей.
-- После успешного развертывания будет выведен ip адрес хоста gitlab-ci. Его необходимо прописать в переменные в файл search_engine_infra/ansible/playbooks/03-run-docker-container-gitlab-ci.yml (строка 7).
+- После успешного развертывания будет выведен ip адрес хоста gitlab-ci. Его необходимо прописать в переменные в файл search_engine_infra/ansible/environments/prod/group_vars/gitlab-ci в переменную `ext_ip_addr`.
 
 ### 2. Развертывание Gitlab-ci, Gitlab-ci Runners и запуск Pipeline.
 - Для успешного запуска необходимо предварительно создать образы микросервисов search_engine_ui и search_engine_crawler и запушить их с тегом latest;
